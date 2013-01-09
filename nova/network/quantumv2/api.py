@@ -130,6 +130,7 @@ class API(base.Base):
                     port_req_body['port']['network_id'] = network_id
                     port_req_body['port']['admin_state_up'] = True
                     port_req_body['port']['tenant_id'] = instance['project_id']
+                    port_req_body['port']['hostname'] = instance['host']
                     created_port_ids.append(
                         quantum.create_port(port_req_body)['port']['id'])
             except Exception:
