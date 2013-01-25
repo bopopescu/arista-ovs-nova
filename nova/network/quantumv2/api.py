@@ -176,6 +176,7 @@ class API(base.Base):
                     port_req_body['port']['network_id'] = network_id
                     port_req_body['port']['admin_state_up'] = True
                     port_req_body['port']['tenant_id'] = instance['project_id']
+                    port_req_body['port']['hostname'] = instance['host']
                     if available_macs is not None:
                         if not available_macs:
                             raise exception.PortNotFree(
