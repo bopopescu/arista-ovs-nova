@@ -167,6 +167,7 @@ class API(base.Base):
             try:
                 port = ports.get(network_id)
                 if port:
+                    port_req_body['port']['hostname'] = instance['host']
                     quantum.update_port(port['id'], port_req_body)
                     touched_port_ids.append(port['id'])
                 else:
