@@ -138,6 +138,7 @@ class TestQuantumv2(test.TestCase):
                          'uuid': str(uuid.uuid4()),
                          'display_name': 'test_instance',
                          'availability_zone': 'nova',
+                         'host': 'some_host',
                          'security_groups': []}
         self.nets1 = [{'id': 'my_netid1',
                       'name': 'my_netname1',
@@ -400,6 +401,7 @@ class TestQuantumv2(test.TestCase):
             port = ports.get(net_id, None)
             if port:
                 port_id = port['id']
+                port_req_body['port']['hostname'] = self.instance['host']
                 self.moxed_client.update_port(port_id,
                                               MyComparator(port_req_body)
                                               ).AndReturn(
@@ -413,6 +415,7 @@ class TestQuantumv2(test.TestCase):
                 port_req_body['port']['admin_state_up'] = True
                 port_req_body['port']['tenant_id'] = \
                     self.instance['project_id']
+                port_req_body['port']['hostname'] = self.instance['host']
                 if macs:
                     port_req_body['port']['mac_address'] = macs.pop()
                 res_port = {'port': {'id': 'fake'}}
@@ -548,6 +551,7 @@ class TestQuantumv2(test.TestCase):
                     'admin_state_up': True,
                     'device_id': self.instance['uuid'],
                     'device_owner': 'compute:nova',
+                    'hostname': self.instance['host'],
                     'tenant_id': self.instance['project_id'],
                 },
             }
