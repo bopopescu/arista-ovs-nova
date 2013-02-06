@@ -145,7 +145,11 @@ class API(base.Base):
             # to create a port on a network. If we find a mac with a
             # pre-allocated port we also remove it from this set.
             available_macs = set(hypervisor_macs)
-        quantum = quantumv2.get_client(context)
+        if self._has_port_binding_extension():
+            # Requires admin creds to set port bindings
+            quantum = quantumv2.get_client(context, admin=True)
+        else:
+            quantum = quantumv2.get_client(context)
         LOG.debug(_('allocate_for_instance() for %s'),
                   instance['display_name'])
         if not instance['project_id']:
@@ -292,11 +296,19 @@ class API(base.Base):
             self.extensions = dict((ext['name'], ext)
                                    for ext in extensions_list)
 
+    def _has_port_binding_extension(self):
+        self._refresh_quantum_extensions_cache()
+        if 'binding' in self.extensions:
+            return True
+        return False
+
     def _populate_quantum_extension_values(self, instance, port_req_body):
         self._refresh_quantum_extensions_cache()
         if 'nvp-qos' in self.extensions:
             rxtx_factor = instance['instance_type'].get('rxtx_factor')
             port_req_body['port']['rxtx_factor'] = rxtx_factor
+        if 'binding' in self.extensions:
+            port_req_body['port']['binding:host_id'] = instance.get('host')
 
     def deallocate_for_instance(self, context, instance, **kwargs):
         """Deallocate all network resources related to the instance."""
