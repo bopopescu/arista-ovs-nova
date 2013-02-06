@@ -77,6 +77,7 @@ CONF.import_opt('flat_injected', 'nova.network.manager')
 LOG = logging.getLogger(__name__)
 
 NET_EXTERNAL = 'router:external'
+PORTBINDING_EXT = "Port Binding"
 
 refresh_cache = network_api.refresh_cache
 update_instance_info_cache = network_api.update_instance_cache_with_nw_info
@@ -148,7 +149,11 @@ class API(base.Base):
             # to create a port on a network. If we find a mac with a
             # pre-allocated port we also remove it from this set.
             available_macs = set(hypervisor_macs)
-        quantum = quantumv2.get_client(context)
+        if self._has_port_binding_extension():
+            # Requires admin creds to set port bindings
+            quantum = quantumv2.get_client(context, admin=True)
+        else:
+            quantum = quantumv2.get_client(context)
         LOG.debug(_('allocate_for_instance() for %s'),
                   instance['display_name'])
         if not instance['project_id']:
@@ -237,6 +242,8 @@ class API(base.Base):
                                       'device_owner': zone}}
             try:
                 port = ports.get(network_id)
+                self._populate_quantum_extension_values(instance,
+                                                        port_req_body)
                 if port:
                     quantum.update_port(port['id'], port_req_body)
                     touched_port_ids.append(port['id'])
@@ -258,8 +265,6 @@ class API(base.Base):
                         mac_address = available_macs.pop()
                         port_req_body['port']['mac_address'] = mac_address
 
-                    self._populate_quantum_extension_values(instance,
-                                                            port_req_body)
                     created_port_ids.append(
                         quantum.create_port(port_req_body)['port']['id'])
             except Exception:
@@ -305,6 +310,10 @@ class API(base.Base):
             self.extensions = dict((ext['name'], ext)
                                    for ext in extensions_list)
 
+    def _has_port_binding_extension(self):
+        self._refresh_quantum_extensions_cache()
+        return PORTBINDING_EXT in self.extensions
+
     def _populate_quantum_extension_values(self, instance, port_req_body):
         """Populate quantum extension values for the instance.
 
@@ -315,6 +324,8 @@ class API(base.Base):
             instance_type = instance_types.extract_instance_type(instance)
             rxtx_factor = instance_type.get('rxtx_factor')
             port_req_body['port']['rxtx_factor'] = rxtx_factor
+        if PORTBINDING_EXT in self.extensions:
+            port_req_body['port']['binding:host_id'] = instance.get('host')
 
     def deallocate_for_instance(self, context, instance, **kwargs):
         """Deallocate all network resources related to the instance."""
