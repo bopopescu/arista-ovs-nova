@@ -165,9 +165,13 @@ class API(base.Base):
             port_req_body = {'port': {'device_id': instance['uuid'],
                                       'device_owner': zone}}
             try:
+                host_id = instance.get('host')
+                if host_id:
+                    # use portbindings quantum extension to send host ID
+                    port_req_body['port']['binding:host_id'] = host_id
+
                 port = ports.get(network_id)
                 if port:
-                    port_req_body['port']['hostname'] = instance.get('host')
                     quantum.update_port(port['id'], port_req_body)
                     touched_port_ids.append(port['id'])
                 else:
@@ -177,7 +181,6 @@ class API(base.Base):
                     port_req_body['port']['network_id'] = network_id
                     port_req_body['port']['admin_state_up'] = True
                     port_req_body['port']['tenant_id'] = instance['project_id']
-                    port_req_body['port']['hostname'] = instance.get('host')
                     if available_macs is not None:
                         if not available_macs:
                             raise exception.PortNotFree(
