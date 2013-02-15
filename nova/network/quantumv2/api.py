@@ -165,10 +165,20 @@ class API(base.Base):
             port_req_body = {'port': {'device_id': instance['uuid'],
                                       'device_owner': zone}}
             try:
+                # use portbindings quantum extension to send host ID
                 host_id = instance.get('host')
-                if host_id:
-                    # use portbindings quantum extension to send host ID
+                ext_list = quantum.list_extensions().get('extensions')
+
+                portbindings_supported = False
+                for ext in ext_list:
+                    if ext['alias'] == 'binding':
+                        portbindings_supported = True
+                        break
+
+                if host_id and portbindings_supported:
                     port_req_body['port']['binding:host_id'] = host_id
+                    # must run as admin for portbindings support
+                    quantum = quantumv2.get_client(context, admin=True)
 
                 port = ports.get(network_id)
                 if port:
