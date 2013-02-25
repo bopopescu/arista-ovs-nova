@@ -361,27 +361,58 @@ class TestQuantumv2(test.TestCase):
         api._populate_quantum_extension_values(instance, port_req_body)
         self.assertEquals(port_req_body['port']['rxtx_factor'], 1)
 
-    def test_update_host_id_udpates_port_req_body(self):
+    def test_portbindings_supported(self):
         api = quantumapi.API()
         self.moxed_client.list_extensions().AndReturn(
             {'extensions': [{'name': 'binding'}]})
-
         self.mox.ReplayAll()
+        has_portbindings = api._has_portbindings_support()
+        self.assertTrue(has_portbindings)
 
-        port_req_body = {'port': {}}
-        host = 'hostId'
-        instance = {'host': host}
+    def test_portbindings_not_supported(self):
+        api = quantumapi.API()
+        self.moxed_client.list_extensions().AndReturn(
+            {'extensions': [{'name': 'nvp-qos'}]})
+        self.mox.ReplayAll()
+        has_portbindings = api._has_portbindings_support()
+        self.assertFalse(has_portbindings)
 
-        updated = api._update_host_id(instance, port_req_body)
+    def test_portbindings_are_only_used_as_admin(self):
+        api = quantumapi.API()
+        net_id = 'net_id'
+        nets = [{'id': net_id}]
+        port = {'port': {'id': net_id}}
 
-        self.assertTrue(updated)
-        self.assertTrue(port_req_body == {'port': {'binding:host_id': host}})
+        self.mox.StubOutWithMock(api, '_get_available_networks')
+        self.mox.StubOutWithMock(api, 'trigger_security_group_members_refresh')
+        self.mox.StubOutWithMock(api,
+                                 'trigger_instance_add_security_group_refresh')
+        self.mox.StubOutWithMock(api, 'get_instance_nw_info')
+
+        api._get_available_networks(context,
+                                    self.instance['project_id'],
+                                    []).AndReturn(nets)
+        self.moxed_client.list_extensions().AndReturn(
+            {'extensions': [{'name': 'binding'}]})
+
+        # we only care get_client is called as Admin in this test
+        quantumv2.get_client(context, admin=True).AndReturn(self.moxed_client)
+
+        self.moxed_client.create_port(mox.IgnoreArg()).AndReturn(port)
+        api.trigger_security_group_members_refresh(mox.IgnoreArg(),
+                                                   mox.IgnoreArg())
+        api.trigger_instance_add_security_group_refresh(mox.IgnoreArg(),
+                                                        mox.IgnoreArg())
+        api.get_instance_nw_info(mox.IgnoreArg(), mox.IgnoreArg(),
+                                 networks=mox.IgnoreArg())
+        self.mox.ReplayAll()
+        api.allocate_for_instance(context, self.instance)
 
     def _stub_allocate_for_instance(self, net_idx=1, **kwargs):
         api = quantumapi.API()
         self.mox.StubOutWithMock(api, 'get_instance_nw_info')
         self.mox.StubOutWithMock(api, '_populate_quantum_extension_values')
-        self.mox.StubOutWithMock(api, '_update_host_id')
+        self.mox.StubOutWithMock(api, '_has_portbindings_support')
         # Net idx is 1-based for compatibility with existing unit tests
         nets = self.nets[net_idx - 1]
         ports = {}
@@ -426,7 +457,7 @@ class TestQuantumv2(test.TestCase):
             **mox_list_network_params).AndReturn({'networks': []})
         for net_id in expected_network_order:
             if kwargs.get('_break') == 'net_id2':
-                api._update_host_id(self.instance, mox.IgnoreArg())
+                api._has_portbindings_support()
                 self.mox.ReplayAll()
                 return api
             port_req_body = {
@@ -435,7 +466,7 @@ class TestQuantumv2(test.TestCase):
                     'device_owner': 'compute:nova',
                 },
             }
-            api._update_host_id(self.instance, mox.IgnoreArg())
+            api._has_portbindings_support()
             port = ports.get(net_id, None)
             if port:
                 port_id = port['id']
@@ -462,7 +493,7 @@ class TestQuantumv2(test.TestCase):
                     MyComparator(port_req_body)).AndReturn(res_port)
 
             if kwargs.get('_break') == 'pre_get_instance_nw_info':
-                api._update_host_id(self.instance, mox.IgnoreArg())
+                api._has_portbindings_support()
                 self.mox.ReplayAll()
                 return api
         api.get_instance_nw_info(mox.IgnoreArg(),
@@ -578,7 +609,7 @@ class TestQuantumv2(test.TestCase):
         """
         api = quantumapi.API()
         self.mox.StubOutWithMock(api, '_populate_quantum_extension_values')
-        self.mox.StubOutWithMock(api, '_update_host_id')
+        self.mox.StubOutWithMock(api, '_has_portbindings_support')
         self.moxed_client.list_networks(
             tenant_id=self.instance['project_id'],
             shared=False).AndReturn(
@@ -587,7 +618,7 @@ class TestQuantumv2(test.TestCase):
                 {'networks': []})
         index = 0
         for network in self.nets2:
-            api._update_host_id(self.instance, mox.IgnoreArg())
+            api._has_portbindings_support()
             port_req_body = {
                 'port': {
                     'network_id': network['id'],

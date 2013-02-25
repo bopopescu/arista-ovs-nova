@@ -177,7 +177,9 @@ class API(base.Base):
             port_req_body = {'port': {'device_id': instance['uuid'],
                                       'device_owner': zone}}
             try:
-                if self._update_host_id(instance, port_req_body):
+                if self._has_portbindings_support():
+                    host_id = instance.get('host')
+                    port_req_body['port']['binding:host_id'] = host_id
                     # must run as admin for portbindings support
                     quantum = quantumv2.get_client(context, admin=True)
 
@@ -243,18 +245,9 @@ class API(base.Base):
             rxtx_factor = instance['instance_type'].get('rxtx_factor')
             port_req_body['port']['rxtx_factor'] = rxtx_factor
 
-    def _update_host_id(self, instance, port_req_body):
+    def _has_portbindings_support(self):
         self._refresh_quantum_extensions_cache()
-
-        # use portbindings quantum extension to send host ID
-        has_updated = False
-        host_id = instance.get('host')
-
-        if host_id is not None and 'binding' in self.extensions:
-            port_req_body['port']['binding:host_id'] = host_id
-            has_updated = True
-
-        return has_updated
+        return 'binding' in self.extensions
 
     def deallocate_for_instance(self, context, instance, **kwargs):
         """Deallocate all network resources related to the instance."""
