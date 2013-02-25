@@ -364,7 +364,7 @@ class TestQuantumv2(test.TestCase):
     def test_portbindings_supported(self):
         api = quantumapi.API()
         self.moxed_client.list_extensions().AndReturn(
-            {'extensions': [{'name': 'binding'}]})
+            {'extensions': [{'name': 'Port Binding'}]})
         self.mox.ReplayAll()
         has_portbindings = api._has_portbindings_support()
         self.assertTrue(has_portbindings)
@@ -393,7 +393,7 @@ class TestQuantumv2(test.TestCase):
                                     self.instance['project_id'],
                                     []).AndReturn(nets)
         self.moxed_client.list_extensions().AndReturn(
-            {'extensions': [{'name': 'binding'}]})
+            {'extensions': [{'name': 'Port Binding'}]})
 
         # we only care get_client is called as Admin in this test
         quantumv2.get_client(context, admin=True).AndReturn(self.moxed_client)

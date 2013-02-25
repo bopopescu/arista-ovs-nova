@@ -247,7 +247,7 @@ class API(base.Base):
 
     def _has_portbindings_support(self):
         self._refresh_quantum_extensions_cache()
-        return 'binding' in self.extensions
+        return 'Port Binding' in self.extensions
 
     def deallocate_for_instance(self, context, instance, **kwargs):
         """Deallocate all network resources related to the instance."""
