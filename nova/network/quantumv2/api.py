@@ -76,6 +76,7 @@ CONF.import_opt('flat_injected', 'nova.network.manager')
 LOG = logging.getLogger(__name__)
 
 NET_EXTERNAL = 'router:external'
+PORTBINDING_EXT = "Port Binding"
 
 refresh_cache = network_api.refresh_cache
 update_instance_info_cache = network_api.update_instance_cache_with_nw_info
@@ -237,6 +238,8 @@ class API(base.Base):
                                       'device_owner': zone}}
             try:
                 port = ports.get(network_id)
+                self._populate_quantum_extension_values(instance,
+                                                        port_req_body)
                 if port:
                     quantum.update_port(port['id'], port_req_body)
                     touched_port_ids.append(port['id'])
@@ -257,8 +260,6 @@ class API(base.Base):
                         mac_address = available_macs.pop()
                         port_req_body['port']['mac_address'] = mac_address
 
-                    self._populate_quantum_extension_values(instance,
-                                                            port_req_body)
                     created_port_ids.append(
                         quantum.create_port(port_req_body)['port']['id'])
             except Exception:
@@ -298,16 +299,14 @@ class API(base.Base):
 
     def _has_port_binding_extension(self):
         self._refresh_quantum_extensions_cache()
-        if 'binding' in self.extensions:
-            return True
-        return False
+        return PORTBINDING_EXT in self.extensions
 
     def _populate_quantum_extension_values(self, instance, port_req_body):
         self._refresh_quantum_extensions_cache()
         if 'nvp-qos' in self.extensions:
             rxtx_factor = instance['instance_type'].get('rxtx_factor')
             port_req_body['port']['rxtx_factor'] = rxtx_factor
-        if 'binding' in self.extensions:
+        if PORTBINDING_EXT in self.extensions:
             port_req_body['port']['binding:host_id'] = instance.get('host')
 
     def deallocate_for_instance(self, context, instance, **kwargs):
